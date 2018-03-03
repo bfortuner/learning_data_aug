@@ -13,7 +13,6 @@ class VAE(nn.Module):
         self.in_shape = in_shape
         self.n_latent = n_latent
         c,h,w = in_shape
-        print(c,h,w)
         self.z_dim = h//2**2 # receptive field downsampled 3 times
         self.encoder = nn.Sequential(
             nn.BatchNorm2d(c),

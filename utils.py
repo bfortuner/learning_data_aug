@@ -28,8 +28,8 @@ def plot_tensor(img, fs=(10,10), title=""):
     plt.title(title)
     plt.show()
 
-def plot_batch(samples):
-    plot_tensor(torchvision.utils.make_grid(samples))
+def plot_batch(samples, title="", fs=(10,10)):
+    plot_tensor(torchvision.utils.make_grid(samples), fs=fs, title=title)
 
 def plot_metric(trn, tst, title):
     plt.plot(np.stack([trn, tst], 1));
