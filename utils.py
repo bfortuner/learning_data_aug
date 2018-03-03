@@ -24,7 +24,7 @@ def plot_tensor(img, fs=(10,10), title=""):
         img = img.squeeze(dim=0)
     npimg = img.numpy()
     plt.figure(figsize=fs)
-    plt.imshow(np.transpose(npimg, (1, 2, 0)))
+    plt.imshow(np.transpose(npimg, (1, 2, 0)), cmap='gray')
     plt.title(title)
     plt.show()
 

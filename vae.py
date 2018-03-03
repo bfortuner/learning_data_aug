@@ -15,8 +15,8 @@ class VAE(nn.Module):
         c,h,w = in_shape
         self.z_dim = h//2**3 # receptive field downsampled 3 times
         self.encoder = nn.Sequential(
-            nn.BatchNorm2d(3),
-            nn.Conv2d(3, 32, kernel_size=4, stride=2, padding=1),  # 32, 16, 16
+            nn.BatchNorm2d(c),
+            nn.Conv2d(c, 32, kernel_size=4, stride=2, padding=1),  # 32, 16, 16
             nn.BatchNorm2d(32),
             nn.LeakyReLU(),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),  # 32, 8, 8
@@ -36,14 +36,14 @@ class VAE(nn.Module):
             nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 3, kernel_size=3, stride=2, padding=1),
-            utils.CenterCrop(32,32),
+            nn.ConvTranspose2d(32, c, kernel_size=3, stride=2, padding=1),
+            utils.CenterCrop(h,w),
             nn.Sigmoid()
         )
 
     def sample_z(self, mean, var):
         std = torch.exp(0.5 * var)
-        eps = Variable(torch.randn(std.size()).cuda())
+        eps = Variable(torch.randn(std.size())).cuda()
         return (eps * std) + mean
 
     def encode(self, x):
@@ -67,7 +67,7 @@ class VAE(nn.Module):
 
     def transform(self, x, eps=0.1):
         mean, var = self.encode(x)
-        noise = Variable(1. + torch.randn(1).cuda() * eps)
+        noise = Variable(1. + torch.randn(x.size(0), self.n_latent).cuda() * eps)
         z = self.sample_z(mean*noise, var*noise)
         out = self.decode(z)
         return out

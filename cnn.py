@@ -71,7 +71,6 @@ def train(net, loader, crit, optim, lr_adjuster=None, augmentor=None):
     n_batches = len(loader)
     total_loss = 0
     total_acc = 0
-    i = 0
     for inputs, targets in loader:
         inputs = Variable(inputs.cuda())
         targets = Variable(targets.cuda())
@@ -94,7 +93,6 @@ def train(net, loader, crit, optim, lr_adjuster=None, augmentor=None):
 
         if lr_adjuster is not None:
             lr_adjuster.step()
-        i += 1
     mean_loss = total_loss / n_batches
     mean_acc = total_acc / n_batches
     return mean_loss, mean_acc

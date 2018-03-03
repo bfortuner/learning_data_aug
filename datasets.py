@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 from torch.autograd import Variable
 import torchvision
@@ -46,27 +47,33 @@ def get_cifar_loader(trainset, testset, batch_size=64):
         testset, batch_size=batch_size, shuffle=False, num_workers=2)
     return trainloader, testloader
 
-def get_mnist_loader(batch_size=128):
-    MNIST_MEAN = np.array([0.1307,])
-    MNIST_STD = np.array([0.3081,])
-    normTransform = transforms.Normalize(MNIST_MEAN, MNIST_STD)
 
-    trainTransform = transforms.Compose([
-        transforms.ToTensor(),
-        normTransform
-    ])
-    testTransform = transforms.Compose([
-        transforms.ToTensor(),
-        normTransform
-    ])
+def get_mnist_dataset(trn_size=60000, tst_size=10000):
+        MNIST_MEAN = np.array([0.1307,])
+        MNIST_STD = np.array([0.3081,])
+        normTransform = transforms.Normalize(MNIST_MEAN, MNIST_STD)
+        trainTransform = transforms.Compose([
+            transforms.ToTensor(),
+            #normTransform
+        ])
+        testTransform = transforms.Compose([
+            transforms.ToTensor(),
+            #normTransform
+        ])
 
-    trainset = torchvision.datasets.MNIST(root='../data', train=True,
-                                          download=True, transform=trainTransform)
+        trainset = torchvision.datasets.MNIST(root='../data', train=True,
+                                              download=True, transform=trainTransform)
+        trainset.train_data = trainset.train_data[:trn_size]
+        trainset.train_labels = trainset.train_labels[:trn_size]
+        testset = torchvision.datasets.MNIST(root='../data', train=False,
+                                             download=True, transform=testTransform)
+        testset.test_data = testset.test_data[:tst_size]
+        testset.test_labels = testset.test_labels[:tst_size]
+        return trainset, testset
+
+def get_mnist_loader(trainset, testset, batch_size=128):
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                               shuffle=True, num_workers=2)
-
-    testset = torchvision.datasets.MNIST(root='../data', train=False,
-                                         download=True, transform=testTransform)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                              shuffle=False, num_workers=2)
 
