@@ -54,7 +54,7 @@ class ConvAE(nn.Module):
             nn.ConvTranspose2d(8, 16, kernel_size=3, stride=2, padding=0),  # 16, 17, 17
             nn.ReLU(),
             nn.ConvTranspose2d(16, c, kernel_size=3, stride=2, padding=1),  # 3, 33, 33
-            utils.CenterCrop(32, 32),
+            utils.CenterCrop(h, w),
             nn.Sigmoid()
         )
 

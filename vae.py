@@ -13,7 +13,8 @@ class VAE(nn.Module):
         self.in_shape = in_shape
         self.n_latent = n_latent
         c,h,w = in_shape
-        self.z_dim = h//2**3 # receptive field downsampled 3 times
+        print(c,h,w)
+        self.z_dim = h//2**2 # receptive field downsampled 3 times
         self.encoder = nn.Sequential(
             nn.BatchNorm2d(c),
             nn.Conv2d(c, 32, kernel_size=4, stride=2, padding=1),  # 32, 16, 16
@@ -22,21 +23,15 @@ class VAE(nn.Module):
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),  # 32, 8, 8
             nn.BatchNorm2d(64),
             nn.LeakyReLU(),
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),  # 32, 4, 4
-            nn.BatchNorm2d(128),
-            nn.LeakyReLU()
         )
-        self.z_mean = nn.Linear(128 * self.z_dim**2, n_latent)
-        self.z_var = nn.Linear(128 * self.z_dim**2, n_latent)
-        self.z_develop = nn.Linear(n_latent, 128 * self.z_dim**2)
+        self.z_mean = nn.Linear(64 * self.z_dim**2, n_latent)
+        self.z_var = nn.Linear(64 * self.z_dim**2, n_latent)
+        self.z_develop = nn.Linear(n_latent, 64 * self.z_dim**2)
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=0),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1),
+            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=0),
             nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, c, kernel_size=3, stride=2, padding=1),
+            nn.ConvTranspose2d(32, 1, kernel_size=3, stride=2, padding=1),
             utils.CenterCrop(h,w),
             nn.Sigmoid()
         )
@@ -55,7 +50,7 @@ class VAE(nn.Module):
 
     def decode(self, z):
         out = self.z_develop(z)
-        out = out.view(z.size(0), 128, self.z_dim, self.z_dim)
+        out = out.view(z.size(0), 64, self.z_dim, self.z_dim)
         out = self.decoder(out)
         return out
 
