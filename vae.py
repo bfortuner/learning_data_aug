@@ -15,22 +15,29 @@ class VAE(nn.Module):
         c,h,w = in_shape
         self.z_dim = h//2**3 # receptive field downsampled 3 times
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=4, stride=2, padding=1),  # 32, 16, 16
+            nn.BatchNorm2d(3),
+            nn.Conv2d(3, 32, kernel_size=4, stride=2, padding=1),  # 32, 16, 16
+            nn.BatchNorm2d(32),
             nn.LeakyReLU(),
-            nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1),  # 32, 8, 8
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),  # 32, 8, 8
+            nn.BatchNorm2d(64),
             nn.LeakyReLU(),
-            nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1),  # 32, 4, 4
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),  # 32, 4, 4
+            nn.BatchNorm2d(128),
             nn.LeakyReLU()
         )
-        self.z_mean = nn.Linear(64 * self.z_dim**2, n_latent)
-        self.z_var = nn.Linear(64 * self.z_dim**2, n_latent)
-        self.z_develop = nn.Linear(n_latent, 64 * self.z_dim**2)
+        self.z_mean = nn.Linear(128 * self.z_dim**2, n_latent)
+        self.z_var = nn.Linear(128 * self.z_dim**2, n_latent)
+        self.z_develop = nn.Linear(n_latent, 128 * self.z_dim**2)
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(64, 64, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=0),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 64, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.ConvTranspose2d(64, 3, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(32, 3, kernel_size=3, stride=2, padding=1),
+            utils.CenterCrop(32,32),
             nn.Sigmoid()
         )
 
@@ -48,7 +55,7 @@ class VAE(nn.Module):
 
     def decode(self, z):
         out = self.z_develop(z)
-        out = out.view(z.size(0), 64, self.z_dim, self.z_dim)
+        out = out.view(z.size(0), 128, self.z_dim, self.z_dim)
         out = self.decoder(out)
         return out
 
@@ -58,11 +65,26 @@ class VAE(nn.Module):
         out = self.decode(z)
         return out, mean, var
 
+    def transform(self, x, eps=0.1):
+        mean, var = self.encode(x)
+        noise = Variable(1. + torch.randn(1).cuda() * eps)
+        z = self.sample_z(mean*noise, var*noise)
+        out = self.decode(z)
+        return out
+
 
 def vae_loss(output, input, mean, var, criterion):
     recon_loss = criterion(output, input)
     kl_loss = torch.mean(0.5 * torch.sum(torch.exp(var) + mean**2 - 1. - var, 1))
     return recon_loss + kl_loss
+
+def generate(model, mean, var):
+    model.eval()
+    mean = Variable(mean.cuda())
+    var = Variable(var.cuda())
+    z = model.sample_z(mean, var)
+    out = model.decode(z)
+    return out.data.cpu()
 
 def predict(model, img):
     model.eval()
@@ -70,8 +92,8 @@ def predict(model, img):
         c,h,w = img.size()
         img = img.view(1,c,h,w)
     img = Variable(img.cuda())
-    out, mu, var = model(img)
-    return out.data.cpu(), mu.data.cpu(), var.data.cpu()
+    out, mean, var = model(img)
+    return out.data.cpu(), mean.data.cpu(), var.data.cpu()
 
 def predict_batch(model, loader):
     inputs, _ = next(iter(loader))
@@ -95,15 +117,33 @@ def train(model, dataloader, crit, optim):
 
     return total_loss / len(dataloader)
 
-def run(model, trn_loader, crit, optim, epochs, plot_interval=1000):
-    losses = []
+def test(model, tst_loader, crit):
+    model.eval()
+    test_loss = 0
+    for inputs, targets in tst_loader:
+        inputs = Variable(inputs.cuda(), volatile=True)
+        target = Variable(targets.cuda())
+
+        output, mean, var = model(inputs)
+
+        loss = vae_loss(output, inputs, mean, var, crit)
+        test_loss += loss.data[0]
+
+    test_loss /= len(tst_loader)
+    return test_loss
+
+def run(model, trn_loader, tst_loader, crit, optim, epochs, plot_interval=1000):
+    losses = {'trn': [], 'tst':[]}
     for epoch in range(epochs):
-        loss = train(model, trn_loader, crit, optim)
-        print('Epoch {:d} Loss: {:.4f}'.format(epoch+1, loss))
+        trn_loss = train(model, trn_loader, crit, optim)
+        tst_loss = test(model, tst_loader, crit)
+        print('Epoch %d, TrnLoss: %.4f, TstLoss: %.4f' % (
+            epoch+1, trn_loss, tst_loss))
         if epoch % plot_interval == 0:
-            samples, mu, var = predict_batch(model, trn_loader)
+            samples, mu, var = predict_batch(model, tst_loader)
             utils.plot_batch(samples)
-        losses.append(loss)
+        losses['trn'].append(trn_loss)
+        losses['tst'].append(tst_loss)
     samples, mean, var = predict_batch(model, trn_loader)
     utils.plot_batch(samples)
     return losses

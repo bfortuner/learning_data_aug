@@ -20,6 +20,8 @@ class CenterCrop(nn.Module):
         return img
 
 def plot_tensor(img, fs=(10,10), title=""):
+    if len(img.size()) == 4:
+        img = img.squeeze(dim=0)
     npimg = img.numpy()
     plt.figure(figsize=fs)
     plt.imshow(np.transpose(npimg, (1, 2, 0)))

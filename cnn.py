@@ -15,17 +15,17 @@ class CNN(nn.Module):
         fc_h = int(h / 2**pool_layers)
         fc_w = int(w / 2**pool_layers)
         self.features = nn.Sequential(
-            *conv_bn_relu(c, 8, kernel_size=1, stride=1, padding=0),
-            *conv_bn_relu(8, 32, kernel_size=3, stride=1, padding=1),
-            nn.MaxPool2d(kernel_size=2, stride=2), #size/2
-            *conv_bn_relu(32, 32, kernel_size=3, stride=1, padding=1),
+            *conv_bn_relu(c, 16, kernel_size=1, stride=1, padding=0),
+            *conv_bn_relu(16, 32, kernel_size=3, stride=1, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2), #size/2
             *conv_bn_relu(32, 64, kernel_size=3, stride=1, padding=1),
             nn.MaxPool2d(kernel_size=2, stride=2), #size/2
+            *conv_bn_relu(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.MaxPool2d(kernel_size=2, stride=2), #size/2
         )
         self.classifier = nn.Sequential(
-            *linear_bn_relu_drop(64 * fc_h * fc_w, 256, dropout=0.25),
-            nn.Linear(256, n_classes),
+            *linear_bn_relu_drop(128 * fc_h * fc_w, 128, dropout=0.5),
+            nn.Linear(128, n_classes),
             nn.Softmax(dim=1)
         )
 
@@ -37,7 +37,7 @@ class CNN(nn.Module):
 
 
 class Trainer():
-    def __init__(self):
+    def __init__(self, optimizer, lr_adjuster=None, augmentor=None):
         self.metrics = {
             'loss': {
                 'trn':[],
@@ -48,11 +48,16 @@ class Trainer():
                 'tst':[]
             },
         }
+        self.optimizer = optimizer
+        self.lr_adjuster = lr_adjuster
+        self.augmentor = augmentor
 
-    def run(self, model, trn_loader, tst_loader, crit, optim, epochs):
+    def run(self, model, trn_loader, tst_loader, criterion, epochs):
         for epoch in range(1, epochs+1):
-            trn_loss, trn_acc = train(model, trn_loader, crit, optim)
-            tst_loss, tst_acc = test(model, tst_loader, crit)
+            trn_loss, trn_acc = train(model, trn_loader, criterion,
+                                      self.optimizer, self.lr_adjuster,
+                                      self.augmentor)
+            tst_loss, tst_acc = test(model, tst_loader, criterion)
             print('Epoch %d, TrnLoss: %.3f, TrnAcc: %.3f, TstLoss: %.3f, TstAcc: %.3f' % (
                 epoch, trn_loss, trn_acc, tst_loss, tst_acc))
             self.metrics['loss']['trn'].append(trn_loss)
@@ -61,14 +66,18 @@ class Trainer():
             self.metrics['accuracy']['tst'].append(tst_acc)
 
 
-def train(net, loader, crit, optim):
+def train(net, loader, crit, optim, lr_adjuster=None, augmentor=None):
     net.train()
     n_batches = len(loader)
     total_loss = 0
     total_acc = 0
-    for data in loader:
-        inputs = Variable(data[0].cuda())
-        targets = Variable(data[1].cuda())
+    i = 0
+    for inputs, targets in loader:
+        inputs = Variable(inputs.cuda())
+        targets = Variable(targets.cuda())
+
+        if augmentor is not None:
+            inputs = augmentor.transform(inputs)
 
         output = net(inputs)
         loss = crit(output, targets)
@@ -83,6 +92,9 @@ def train(net, loader, crit, optim):
         total_loss += loss.data[0]
         total_acc += accuracy
 
+        if lr_adjuster is not None:
+            lr_adjuster.step()
+        i += 1
     mean_loss = total_loss / n_batches
     mean_acc = total_acc / n_batches
     return mean_loss, mean_acc

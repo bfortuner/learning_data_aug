@@ -40,6 +40,7 @@ Tested on Ubuntu 16.04 with GeForce GTX 1080 Ti
 
 * http://kvfrans.com/variational-autoencoders-explained/
 * https://wiseodd.github.io/techblog/2016/12/10/variational-autoencoder/
+* https://wiseodd.github.io/techblog/2016/12/17/conditional-vae/
 
 ### GAN
 
@@ -56,7 +57,7 @@ Tested on Ubuntu 16.04 with GeForce GTX 1080 Ti
 
 * https://github.com/kvfrans/variational-autoencoder
 * https://github.com/wiseodd/generative-models/blob/master/VAE/vanilla_vae/vae_pytorch.py
-
+* https://github.com/wiseodd/generative-models/blob/master/VAE/conditional_vae/cvae_pytorch.py
 
 ## Links
 * https://blog.openai.com/requests-for-research-2/
